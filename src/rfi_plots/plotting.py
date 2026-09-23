@@ -14,8 +14,7 @@ from rfi_plots.constants import (
     DEFAULT_COLOUR_MAP,
     FIGURE_DPI,
     FIGURE_SIZE_INCHES,
-    FLAGGED_TILE_EDGE_COLOUR,
-    FLAGGED_TILE_EDGE_WIDTH,
+    FLAGGED_TILE_COLOUR,
     GRID_ALPHA,
     LOG_SCALE_LABEL_SUFFIX,
     MATPLOTLIB_BACKEND,
@@ -23,13 +22,14 @@ from rfi_plots.constants import (
     MISSING_TILE_COLOUR,
     MODE_DESCRIPTIONS,
     PLOT_MARGIN_FRACTION,
+    STATISTICS_SUBTITLE_TEMPLATE,
     TILE_EDGE_COLOUR,
     TILE_EDGE_WIDTH,
     TILE_MARKER,
     TILE_MARKER_SIZE_POINTS2,
 )
 from rfi_plots.layout import TileLayout
-from rfi_plots.metrics import TileMetric
+from rfi_plots.metrics import AmplitudeStatistics, TileMetric
 
 matplotlib.use(MATPLOTLIB_BACKEND)
 
@@ -102,12 +102,14 @@ def plot_tile_map(
     log_scale: bool = False,
     value_min: float | None = None,
     value_max: float | None = None,
+    statistics: AmplitudeStatistics | None = None,
 ) -> Path:
     """Plot a to-scale tile map coloured by a per-tile metric.
 
     Each tile is drawn as a solid square at its east/north position. Tiles
-    flagged in the metafits get a coloured edge, and tiles with no data are
-    drawn in a fixed colour.
+    flagged in the metafits are drawn in a fixed colour rather than by
+    amplitude, because their amplitudes are meaningless, and they are left out
+    of the colour scale. Unflagged tiles with no data get their own colour.
 
     Args:
         layout: Tile positions and identities.
@@ -122,11 +124,13 @@ def plot_tile_map(
             scale and to the smallest positive value on a log scale.
         value_max: Upper limit of the colour scale. Defaults to the largest
             plotted value.
+        statistics: Statistics over the unclipped values, added to the subtitle
+            when given.
 
     Returns:
         The path the figure was written to.
     """
-    has_data = np.isfinite(metric.values)
+    has_data = np.isfinite(metric.values) & ~layout.flagged
     norm, log_scale_used = _colour_norm(metric.values[has_data], log_scale, value_min, value_max)
 
     if log_scale_used:
@@ -134,19 +138,29 @@ def plot_tile_map(
 
     figure, axes = plt.subplots(figsize=FIGURE_SIZE_INCHES)
 
-    edge_colours = np.where(layout.flagged, FLAGGED_TILE_EDGE_COLOUR, TILE_EDGE_COLOUR)
-    edge_widths = np.where(layout.flagged, FLAGGED_TILE_EDGE_WIDTH, TILE_EDGE_WIDTH)
-
-    if np.any(~has_data):
+    missing = ~has_data & ~layout.flagged
+    if np.any(missing):
         axes.scatter(
-            layout.east_m[~has_data],
-            layout.north_m[~has_data],
+            layout.east_m[missing],
+            layout.north_m[missing],
             s=TILE_MARKER_SIZE_POINTS2,
             marker=TILE_MARKER,
             c=MISSING_TILE_COLOUR,
-            edgecolors=edge_colours[~has_data],
-            linewidths=edge_widths[~has_data],
+            edgecolors=TILE_EDGE_COLOUR,
+            linewidths=TILE_EDGE_WIDTH,
             label="no data",
+        )
+
+    if np.any(layout.flagged):
+        axes.scatter(
+            layout.east_m[layout.flagged],
+            layout.north_m[layout.flagged],
+            s=TILE_MARKER_SIZE_POINTS2,
+            marker=TILE_MARKER,
+            c=FLAGGED_TILE_COLOUR,
+            edgecolors=TILE_EDGE_COLOUR,
+            linewidths=TILE_EDGE_WIDTH,
+            label="flagged",
         )
 
     tiles = axes.scatter(
@@ -157,8 +171,8 @@ def plot_tile_map(
         c=metric.values[has_data],
         cmap=colour_map,
         norm=norm,
-        edgecolors=edge_colours[has_data],
-        linewidths=edge_widths[has_data],
+        edgecolors=TILE_EDGE_COLOUR,
+        linewidths=TILE_EDGE_WIDTH,
     )
 
     colour_bar = figure.colorbar(tiles, ax=axes)
@@ -170,11 +184,17 @@ def plot_tile_map(
     axes.set_xlabel(AXIS_LABEL_EAST)
     axes.set_ylabel(AXIS_LABEL_NORTH)
     axes.grid(visible=True, alpha=GRID_ALPHA)
-    axes.set_title(
-        f"{obs_id}: mode {mode} - {MODE_DESCRIPTIONS[mode]}\n"
-        f"{layout.num_tiles} tiles, {metric.reads_used} reads, "
-        f"red edge = flagged in metafits"
-    )
+    subtitle = f"{layout.num_tiles} tiles, {metric.reads_used} reads, solid red = flagged in metafits"
+    if statistics is not None:
+        subtitle += "\n" + STATISTICS_SUBTITLE_TEMPLATE.format(
+            mean=statistics.mean,
+            standard_deviation=statistics.standard_deviation,
+            tiles_used=statistics.tiles_used,
+            flagged_excluded=statistics.flagged_excluded,
+            zero_excluded=statistics.zero_excluded,
+        )
+
+    axes.set_title(f"{obs_id}: mode {mode} - {MODE_DESCRIPTIONS[mode]}\n{subtitle}")
 
     figure.tight_layout()
     figure.savefig(output_path, dpi=FIGURE_DPI)

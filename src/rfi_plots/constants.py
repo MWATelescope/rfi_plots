@@ -33,8 +33,7 @@ TILE_MARKER = "s"
 TILE_MARKER_SIZE_POINTS2 = 110.0
 TILE_EDGE_COLOUR = "black"
 TILE_EDGE_WIDTH = 0.4
-FLAGGED_TILE_EDGE_COLOUR = "red"
-FLAGGED_TILE_EDGE_WIDTH = 1.6
+FLAGGED_TILE_COLOUR = "red"
 MISSING_TILE_COLOUR = "lightgrey"
 GRID_ALPHA = 0.25
 PLOT_MARGIN_FRACTION = 0.05
@@ -75,3 +74,9 @@ CLIP_WARNING_TEMPLATE = "tile: {ant},{tile_id},{tile_name} amplitude {amplitude:
 FLAGGED_TILE_REPORT_HEADER = "{count} tile(s) flagged in the metafits:"
 FLAGGED_TILE_TEMPLATE = "tile: {ant},{tile_id},{tile_name}"
 NO_FLAGGED_TILES_MESSAGE = "No tiles are flagged in the metafits"
+
+# Statistics line in the plot subtitle.
+STATISTICS_SUBTITLE_TEMPLATE = (
+    "mean amplitude {mean:.4g}, std dev {standard_deviation:.4g} over {tiles_used} tiles "
+    "({flagged_excluded} flagged, {zero_excluded} zero excluded)"
+)

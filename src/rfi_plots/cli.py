@@ -19,7 +19,13 @@ from rfi_plots.constants import (
     OUTPUT_FILENAME_TEMPLATE,
 )
 from rfi_plots.layout import flagged_tile_report, tile_layout_from_metafits
-from rfi_plots.metrics import TileMetric, clip_to_range, compute_auto_amplitudes, compute_flag_occupancy
+from rfi_plots.metrics import (
+    TileMetric,
+    amplitude_statistics,
+    clip_to_range,
+    compute_auto_amplitudes,
+    compute_flag_occupancy,
+)
 from rfi_plots.plotting import plot_tile_map
 
 
@@ -173,6 +179,8 @@ def main(argv: list[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return EXIT_FAILURE
 
+    statistics = amplitude_statistics(metric, layout)
+
     if amp_min is not None or args.amp_max is not None:
         metric, clip_warnings = clip_to_range(metric, layout, minimum=amp_min, maximum=args.amp_max)
         for warning in clip_warnings:
@@ -193,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         log_scale=args.log,
         value_min=amp_min,
         value_max=args.amp_max,
+        statistics=statistics,
     )
 
     if metric.reads_missing:

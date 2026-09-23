@@ -234,3 +234,56 @@ def clip_to_range(
         clipped = np.where(above, maximum, clipped)
 
     return replace(metric, values=clipped), messages
+
+
+@dataclass(frozen=True)
+class AmplitudeStatistics:
+    """Summary statistics over the tiles whose amplitudes are meaningful.
+
+    Attributes:
+        mean: Mean amplitude, or NaN if no tile qualified.
+        standard_deviation: Standard deviation, or NaN if no tile qualified.
+        tiles_used: Number of tiles the statistics were computed over.
+        flagged_excluded: Number of tiles left out because they are flagged.
+        zero_excluded: Number of unflagged tiles left out because they read zero.
+    """
+
+    mean: float
+    standard_deviation: float
+    tiles_used: int
+    flagged_excluded: int
+    zero_excluded: int
+
+
+def amplitude_statistics(metric: TileMetric, layout: TileLayout) -> AmplitudeStatistics:
+    """Summarise the per-tile values over the tiles that carry real signal.
+
+    Tiles flagged in the metafits are excluded because their amplitudes are
+    meaningless, and unflagged tiles reading zero are excluded because they
+    indicate a dead signal chain rather than an absence of RFI. Call this before
+    any clipping so the statistics describe the data rather than the colour
+    scale limits.
+
+    Args:
+        metric: The per-tile metric to summarise.
+        layout: Tile layout, used for the metafits flags.
+
+    Returns:
+        The statistics and the counts of what was excluded.
+    """
+    has_data = np.isfinite(metric.values)
+    flagged_excluded = int(np.sum(has_data & layout.flagged))
+    zero_excluded = int(np.sum(has_data & ~layout.flagged & (metric.values == 0.0)))
+
+    used = has_data & ~layout.flagged & (metric.values != 0.0)
+    values = metric.values[used]
+    mean = float(np.mean(values)) if values.size else float("nan")
+    standard_deviation = float(np.std(values)) if values.size else float("nan")
+
+    return AmplitudeStatistics(
+        mean=mean,
+        standard_deviation=standard_deviation,
+        tiles_used=int(values.size),
+        flagged_excluded=flagged_excluded,
+        zero_excluded=zero_excluded,
+    )
