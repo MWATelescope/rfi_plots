@@ -61,5 +61,12 @@ MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE = 1
 # so it starts at the smallest positive plotted value.
 COLOUR_SCALE_MINIMUM = 0.0
 
-# Amplitude maximum override.
-CLIP_WARNING_TEMPLATE = "tile: {ant},{tile_id},{tile_name} amplitude {amplitude:.6g} has been clipped to {maximum:.6g}"
+# A log scale cannot start at zero, so this is used instead when the requested
+# minimum is zero or less.
+LOG_SCALE_MINIMUM_FALLBACK = 1.0
+LOG_ZERO_MINIMUM_WARNING = (
+    "--amp-min of {requested:.6g} cannot be used with --log, so a minimum of {used:.6g} was used instead"
+)
+
+# Amplitude range overrides.
+CLIP_WARNING_TEMPLATE = "tile: {ant},{tile_id},{tile_name} amplitude {amplitude:.6g} has been clipped to {limit:.6g}"

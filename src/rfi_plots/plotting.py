@@ -55,36 +55,41 @@ def _axis_limits(positions: np.ndarray) -> tuple[float, float]:
 def _colour_norm(
     values: np.ndarray,
     log_scale: bool,
+    value_min: float | None,
     value_max: float | None,
 ) -> tuple[Normalize | None, bool]:
     """Build the colour normalisation for the plotted values.
 
-    A linear scale always starts at zero. A log scale cannot, so it starts at
-    the smallest positive value, and it is refused altogether if every value is
-    zero or negative.
+    With no limits given a linear scale starts at zero, while a log scale starts
+    at the smallest positive value because it cannot start at zero. A log scale
+    is refused altogether if every value is zero or negative.
 
     Args:
         values: The finite per-tile values being plotted.
         log_scale: True if a log colour scale was requested.
+        value_min: Lower limit of the colour scale, or None for the default.
+            Values of zero or less are ignored on a log scale.
         value_max: Upper limit of the colour scale, or None to take it from the
-            values themselves. The lower limit is always zero on a linear scale.
+            values themselves.
 
     Returns:
         A tuple of (normalisation or None for the matplotlib default, True if a
         log scale is actually in use).
     """
     if not log_scale:
+        lower = COLOUR_SCALE_MINIMUM if value_min is None else value_min
         upper = float(np.max(values)) if value_max is None else value_max
 
-        return Normalize(vmin=COLOUR_SCALE_MINIMUM, vmax=upper), False
+        return Normalize(vmin=lower, vmax=upper), False
 
     positive = values[values > 0.0]
     if positive.size < MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE:
         return None, False
 
+    lower = float(np.min(positive)) if value_min is None or value_min <= 0.0 else value_min
     upper = float(np.max(positive)) if value_max is None else value_max
 
-    return LogNorm(vmin=float(np.min(positive)), vmax=upper), True
+    return LogNorm(vmin=lower, vmax=upper), True
 
 
 def plot_tile_map(
@@ -95,6 +100,7 @@ def plot_tile_map(
     output_path: Path,
     colour_map: str = DEFAULT_COLOUR_MAP,
     log_scale: bool = False,
+    value_min: float | None = None,
     value_max: float | None = None,
 ) -> Path:
     """Plot a to-scale tile map coloured by a per-tile metric.
@@ -112,6 +118,8 @@ def plot_tile_map(
         colour_map: Name of the matplotlib colour map to use.
         log_scale: Use a logarithmic colour scale. Tiles with values of zero or
             less are then drawn as no data, because a log scale cannot show them.
+        value_min: Lower limit of the colour scale. Defaults to zero on a linear
+            scale and to the smallest positive value on a log scale.
         value_max: Upper limit of the colour scale. Defaults to the largest
             plotted value.
 
@@ -119,7 +127,7 @@ def plot_tile_map(
         The path the figure was written to.
     """
     has_data = np.isfinite(metric.values)
-    norm, log_scale_used = _colour_norm(metric.values[has_data], log_scale, value_max)
+    norm, log_scale_used = _colour_norm(metric.values[has_data], log_scale, value_min, value_max)
 
     if log_scale_used:
         has_data &= metric.values > 0.0

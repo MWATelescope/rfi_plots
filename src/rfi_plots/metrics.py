@@ -170,27 +170,67 @@ def compute_flag_occupancy(correlator_context: CorrelatorContext) -> TileMetric:
     )
 
 
-def clip_to_maximum(metric: TileMetric, layout: TileLayout, maximum: float) -> tuple[TileMetric, list[str]]:
-    """Clip per-tile values to a maximum and report each tile that was clipped.
+def _clip_messages(
+    values: NDArray[np.float64],
+    layout: TileLayout,
+    clipped_mask: NDArray[np.bool_],
+    limit: float,
+) -> list[str]:
+    """Build one warning message per clipped tile.
+
+    Args:
+        values: The unclipped per-tile values.
+        layout: Tile identities, used to name the clipped tiles.
+        clipped_mask: True for each tile that was clipped.
+        limit: The value those tiles were clipped to.
+
+    Returns:
+        One message per clipped tile.
+    """
+    return [
+        CLIP_WARNING_TEMPLATE.format(
+            ant=antenna_index,
+            tile_id=layout.tile_ids[antenna_index],
+            tile_name=layout.tile_names[antenna_index],
+            amplitude=values[antenna_index],
+            limit=limit,
+        )
+        for antenna_index in np.flatnonzero(clipped_mask)
+    ]
+
+
+def clip_to_range(
+    metric: TileMetric,
+    layout: TileLayout,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> tuple[TileMetric, list[str]]:
+    """Clip per-tile values into a range and report each tile that was clipped.
+
+    Tiles with no data are left alone. Either end of the range can be left as
+    None to apply no limit at that end.
 
     Args:
         metric: The per-tile metric to clip.
         layout: Tile identities, used to name the clipped tiles.
+        minimum: The value that anything smaller is clipped to.
         maximum: The value that anything larger is clipped to.
 
     Returns:
         A tuple of (clipped metric, one warning message per clipped tile).
     """
-    clipped_mask = np.isfinite(metric.values) & (metric.values > maximum)
-    messages = [
-        CLIP_WARNING_TEMPLATE.format(
-            ant=antenna_index,
-            tile_id=layout.tile_ids[antenna_index],
-            tile_name=layout.tile_names[antenna_index],
-            amplitude=metric.values[antenna_index],
-            maximum=maximum,
-        )
-        for antenna_index in np.flatnonzero(clipped_mask)
-    ]
+    finite = np.isfinite(metric.values)
+    clipped = metric.values.copy()
+    messages: list[str] = []
 
-    return replace(metric, values=np.where(clipped_mask, maximum, metric.values)), messages
+    if minimum is not None:
+        below = finite & (metric.values < minimum)
+        messages += _clip_messages(metric.values, layout, below, minimum)
+        clipped = np.where(below, minimum, clipped)
+
+    if maximum is not None:
+        above = finite & (metric.values > maximum)
+        messages += _clip_messages(metric.values, layout, above, maximum)
+        clipped = np.where(above, maximum, clipped)
+
+    return replace(metric, values=clipped), messages
