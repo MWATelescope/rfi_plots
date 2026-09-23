@@ -1,2 +1,5 @@
-def main() -> None:
-    print("Hello from rfi-plots!")
+"""RFI plots for the MWA."""
+
+from rfi_plots.cli import main
+
+__all__ = ["main"]

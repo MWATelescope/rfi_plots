@@ -6,12 +6,29 @@ readme = "README.md"
 authors = [{ name = "Greg Sleap", email = "greg.sleap@curtin.edu.au" }]
 requires-python = ">=3.14"
 dependencies = [
+    "matplotlib>=3.11",
     "mwalib>=3.0.1",
 ]
 
 [project.scripts]
-rfi-plots = "rfi_plots:main"
+rfi-plots = "rfi_plots.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.11,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.8",
+    "ty>=0.0.83",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "SIM", "TRY", "BLE", "DTZ", "D"]
+ignore = ["TRY003"]  # messages live at the raise site in this small tool
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
