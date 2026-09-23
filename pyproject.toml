@@ -1,0 +1,17 @@
+[project]
+name = "rfi-plots"
+version = "0.1.0"
+description = "RFI plots for the MWA"
+readme = "README.md"
+authors = [{ name = "Greg Sleap", email = "greg.sleap@curtin.edu.au" }]
+requires-python = ">=3.14"
+dependencies = [
+    "mwalib>=3.0.1",
+]
+
+[project.scripts]
+rfi-plots = "rfi_plots:main"
+
+[build-system]
+requires = ["uv_build>=0.12.11,<0.13.0"]
+build-backend = "uv_build"
