@@ -64,6 +64,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=f"output image file (default: {OUTPUT_FILENAME_TEMPLATE})",
     )
     parser.add_argument(
+        "--log",
+        action="store_true",
+        help="use a logarithmic colour scale (tiles with values of zero or less are drawn as no data)",
+    )
+    parser.add_argument(
         "--cmap",
         default=DEFAULT_COLOUR_MAP,
         help=f"matplotlib colour map name (default: {DEFAULT_COLOUR_MAP})",
@@ -132,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         obs_id=metafits_context.obs_id,
         output_path=output_path,
         colour_map=args.cmap,
+        log_scale=args.log,
     )
 
     if metric.reads_missing:

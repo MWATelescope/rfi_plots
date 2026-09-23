@@ -4,6 +4,7 @@ from pathlib import Path
 
 import matplotlib
 import numpy as np
+from matplotlib.colors import LogNorm, Normalize
 
 from rfi_plots.constants import (
     AXIS_LABEL_EAST,
@@ -15,7 +16,9 @@ from rfi_plots.constants import (
     FLAGGED_TILE_EDGE_COLOUR,
     FLAGGED_TILE_EDGE_WIDTH,
     GRID_ALPHA,
+    LOG_SCALE_LABEL_SUFFIX,
     MATPLOTLIB_BACKEND,
+    MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE,
     MISSING_TILE_COLOUR,
     MODE_DESCRIPTIONS,
     PLOT_MARGIN_FRACTION,
@@ -48,6 +51,30 @@ def _axis_limits(positions: np.ndarray) -> tuple[float, float]:
     return lower - margin, upper + margin
 
 
+def _colour_norm(values: np.ndarray, log_scale: bool) -> tuple[Normalize | None, bool]:
+    """Build the colour normalisation for the plotted values.
+
+    A log scale needs at least one positive value, so it is refused if every
+    value is zero or negative.
+
+    Args:
+        values: The finite per-tile values being plotted.
+        log_scale: True if a log colour scale was requested.
+
+    Returns:
+        A tuple of (normalisation or None for the matplotlib default, True if a
+        log scale is actually in use).
+    """
+    if not log_scale:
+        return None, False
+
+    positive = values[values > 0.0]
+    if positive.size < MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE:
+        return None, False
+
+    return LogNorm(vmin=float(np.min(positive)), vmax=float(np.max(positive))), True
+
+
 def plot_tile_map(
     layout: TileLayout,
     metric: TileMetric,
@@ -55,6 +82,7 @@ def plot_tile_map(
     obs_id: int,
     output_path: Path,
     colour_map: str = DEFAULT_COLOUR_MAP,
+    log_scale: bool = False,
 ) -> Path:
     """Plot a to-scale tile map coloured by a per-tile metric.
 
@@ -69,13 +97,22 @@ def plot_tile_map(
         obs_id: Observation id, used for the title.
         output_path: File the figure is written to.
         colour_map: Name of the matplotlib colour map to use.
+        log_scale: Use a logarithmic colour scale. Tiles with values of zero or
+            less are then drawn as no data, because a log scale cannot show them.
 
     Returns:
         The path the figure was written to.
     """
     has_data = np.isfinite(metric.values)
+    norm, log_scale_used = _colour_norm(metric.values[has_data], log_scale)
+
+    if log_scale_used:
+        has_data &= metric.values > 0.0
 
     figure, axes = plt.subplots(figsize=FIGURE_SIZE_INCHES)
+
+    edge_colours = np.where(layout.flagged, FLAGGED_TILE_EDGE_COLOUR, TILE_EDGE_COLOUR)
+    edge_widths = np.where(layout.flagged, FLAGGED_TILE_EDGE_WIDTH, TILE_EDGE_WIDTH)
 
     if np.any(~has_data):
         axes.scatter(
@@ -84,13 +121,10 @@ def plot_tile_map(
             s=TILE_MARKER_SIZE_POINTS2,
             marker=TILE_MARKER,
             c=MISSING_TILE_COLOUR,
-            edgecolors=TILE_EDGE_COLOUR,
-            linewidths=TILE_EDGE_WIDTH,
+            edgecolors=edge_colours[~has_data],
+            linewidths=edge_widths[~has_data],
             label="no data",
         )
-
-    edge_colours = np.where(layout.flagged, FLAGGED_TILE_EDGE_COLOUR, TILE_EDGE_COLOUR)
-    edge_widths = np.where(layout.flagged, FLAGGED_TILE_EDGE_WIDTH, TILE_EDGE_WIDTH)
 
     tiles = axes.scatter(
         layout.east_m[has_data],
@@ -99,12 +133,13 @@ def plot_tile_map(
         marker=TILE_MARKER,
         c=metric.values[has_data],
         cmap=colour_map,
+        norm=norm,
         edgecolors=edge_colours[has_data],
         linewidths=edge_widths[has_data],
     )
 
     colour_bar = figure.colorbar(tiles, ax=axes)
-    colour_bar.set_label(COLOUR_BAR_LABELS[mode])
+    colour_bar.set_label(COLOUR_BAR_LABELS[mode] + (LOG_SCALE_LABEL_SUFFIX if log_scale_used else ""))
 
     axes.set_aspect("equal")
     axes.set_xlim(*_axis_limits(layout.east_m))

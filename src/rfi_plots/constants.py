@@ -52,3 +52,7 @@ OUTPUT_FILENAME_TEMPLATE = "{obs_id}_mode{mode}_tile_map.png"
 # Process exit codes.
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
+
+# Log colour scale.
+LOG_SCALE_LABEL_SUFFIX = " (log scale)"
+MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE = 1
