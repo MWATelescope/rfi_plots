@@ -17,7 +17,7 @@ from rfi_plots.constants import (
     OUTPUT_FILENAME_TEMPLATE,
 )
 from rfi_plots.layout import tile_layout_from_metafits
-from rfi_plots.metrics import TileMetric, compute_auto_amplitudes, compute_flag_occupancy
+from rfi_plots.metrics import TileMetric, clip_to_maximum, compute_auto_amplitudes, compute_flag_occupancy
 from rfi_plots.plotting import plot_tile_map
 
 
@@ -67,6 +67,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--log",
         action="store_true",
         help="use a logarithmic colour scale (tiles with values of zero or less are drawn as no data)",
+    )
+    parser.add_argument(
+        "--amp-max",
+        type=float,
+        default=None,
+        help="fix the maximum of the amplitude colour scale (default: taken from the data). "
+        "Tile values above it are clipped to it and a warning is emitted for each one",
     )
     parser.add_argument(
         "--cmap",
@@ -125,6 +132,11 @@ def main(argv: list[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return EXIT_FAILURE
 
+    if args.amp_max is not None:
+        metric, clip_warnings = clip_to_maximum(metric, layout, args.amp_max)
+        for warning in clip_warnings:
+            print(warning, file=sys.stderr)
+
     if metric.reads_used == 0:
         print("No visibility data was read from the supplied files.", file=sys.stderr)
         return EXIT_FAILURE
@@ -138,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         output_path=output_path,
         colour_map=args.cmap,
         log_scale=args.log,
+        value_max=args.amp_max,
     )
 
     if metric.reads_missing:

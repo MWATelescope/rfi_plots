@@ -51,7 +51,11 @@ def _axis_limits(positions: np.ndarray) -> tuple[float, float]:
     return lower - margin, upper + margin
 
 
-def _colour_norm(values: np.ndarray, log_scale: bool) -> tuple[Normalize | None, bool]:
+def _colour_norm(
+    values: np.ndarray,
+    log_scale: bool,
+    value_max: float | None,
+) -> tuple[Normalize | None, bool]:
     """Build the colour normalisation for the plotted values.
 
     A log scale needs at least one positive value, so it is refused if every
@@ -60,19 +64,26 @@ def _colour_norm(values: np.ndarray, log_scale: bool) -> tuple[Normalize | None,
     Args:
         values: The finite per-tile values being plotted.
         log_scale: True if a log colour scale was requested.
+        value_max: Upper limit of the colour scale, or None to take it from the
+            values themselves.
 
     Returns:
         A tuple of (normalisation or None for the matplotlib default, True if a
         log scale is actually in use).
     """
     if not log_scale:
-        return None, False
+        if value_max is None:
+            return None, False
+
+        return Normalize(vmin=float(np.min(values)), vmax=value_max), False
 
     positive = values[values > 0.0]
     if positive.size < MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE:
         return None, False
 
-    return LogNorm(vmin=float(np.min(positive)), vmax=float(np.max(positive))), True
+    upper = float(np.max(positive)) if value_max is None else value_max
+
+    return LogNorm(vmin=float(np.min(positive)), vmax=upper), True
 
 
 def plot_tile_map(
@@ -83,6 +94,7 @@ def plot_tile_map(
     output_path: Path,
     colour_map: str = DEFAULT_COLOUR_MAP,
     log_scale: bool = False,
+    value_max: float | None = None,
 ) -> Path:
     """Plot a to-scale tile map coloured by a per-tile metric.
 
@@ -99,12 +111,14 @@ def plot_tile_map(
         colour_map: Name of the matplotlib colour map to use.
         log_scale: Use a logarithmic colour scale. Tiles with values of zero or
             less are then drawn as no data, because a log scale cannot show them.
+        value_max: Upper limit of the colour scale. Defaults to the largest
+            plotted value.
 
     Returns:
         The path the figure was written to.
     """
     has_data = np.isfinite(metric.values)
-    norm, log_scale_used = _colour_norm(metric.values[has_data], log_scale)
+    norm, log_scale_used = _colour_norm(metric.values[has_data], log_scale, value_max)
 
     if log_scale_used:
         has_data &= metric.values > 0.0

@@ -56,3 +56,6 @@ EXIT_FAILURE = 1
 # Log colour scale.
 LOG_SCALE_LABEL_SUFFIX = " (log scale)"
 MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE = 1
+
+# Amplitude maximum override.
+CLIP_WARNING_TEMPLATE = "tile: {ant},{tile_id},{tile_name} amplitude {amplitude:.6g} has been clipped to {maximum:.6g}"

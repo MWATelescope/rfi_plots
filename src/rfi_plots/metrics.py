@@ -1,6 +1,6 @@
 """Per-tile metrics used to colour the tile map."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from mwalib import CorrelatorContext, GpuboxErrorNoDataForTimeStepCoarseChannel, MetafitsContext
@@ -8,12 +8,14 @@ from numpy.typing import NDArray
 
 from rfi_plots.constants import (
     AUTO_POLS_AVERAGED,
+    CLIP_WARNING_TEMPLATE,
     DIGITAL_GAIN_POWER_EXPONENT,
     VIS_XX_IMAG_INDEX,
     VIS_XX_REAL_INDEX,
     VIS_YY_IMAG_INDEX,
     VIS_YY_REAL_INDEX,
 )
+from rfi_plots.layout import TileLayout
 
 
 @dataclass(frozen=True)
@@ -166,3 +168,29 @@ def compute_flag_occupancy(correlator_context: CorrelatorContext) -> TileMetric:
         "Mode 2 (flag occupancy) is not implemented yet. It needs Birli/aoflagger output "
         "(uvfits or measurement set) rather than raw visibility files."
     )
+
+
+def clip_to_maximum(metric: TileMetric, layout: TileLayout, maximum: float) -> tuple[TileMetric, list[str]]:
+    """Clip per-tile values to a maximum and report each tile that was clipped.
+
+    Args:
+        metric: The per-tile metric to clip.
+        layout: Tile identities, used to name the clipped tiles.
+        maximum: The value that anything larger is clipped to.
+
+    Returns:
+        A tuple of (clipped metric, one warning message per clipped tile).
+    """
+    clipped_mask = np.isfinite(metric.values) & (metric.values > maximum)
+    messages = [
+        CLIP_WARNING_TEMPLATE.format(
+            ant=antenna_index,
+            tile_id=layout.tile_ids[antenna_index],
+            tile_name=layout.tile_names[antenna_index],
+            amplitude=metric.values[antenna_index],
+            maximum=maximum,
+        )
+        for antenna_index in np.flatnonzero(clipped_mask)
+    ]
+
+    return replace(metric, values=np.where(clipped_mask, maximum, metric.values)), messages
