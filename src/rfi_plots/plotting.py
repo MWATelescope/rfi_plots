@@ -10,6 +10,7 @@ from rfi_plots.constants import (
     AXIS_LABEL_EAST,
     AXIS_LABEL_NORTH,
     COLOUR_BAR_LABELS,
+    COLOUR_SCALE_MINIMUM,
     DEFAULT_COLOUR_MAP,
     FIGURE_DPI,
     FIGURE_SIZE_INCHES,
@@ -58,24 +59,24 @@ def _colour_norm(
 ) -> tuple[Normalize | None, bool]:
     """Build the colour normalisation for the plotted values.
 
-    A log scale needs at least one positive value, so it is refused if every
-    value is zero or negative.
+    A linear scale always starts at zero. A log scale cannot, so it starts at
+    the smallest positive value, and it is refused altogether if every value is
+    zero or negative.
 
     Args:
         values: The finite per-tile values being plotted.
         log_scale: True if a log colour scale was requested.
         value_max: Upper limit of the colour scale, or None to take it from the
-            values themselves.
+            values themselves. The lower limit is always zero on a linear scale.
 
     Returns:
         A tuple of (normalisation or None for the matplotlib default, True if a
         log scale is actually in use).
     """
     if not log_scale:
-        if value_max is None:
-            return None, False
+        upper = float(np.max(values)) if value_max is None else value_max
 
-        return Normalize(vmin=float(np.min(values)), vmax=value_max), False
+        return Normalize(vmin=COLOUR_SCALE_MINIMUM, vmax=upper), False
 
     positive = values[values > 0.0]
     if positive.size < MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE:

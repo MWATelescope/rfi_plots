@@ -57,5 +57,9 @@ EXIT_FAILURE = 1
 LOG_SCALE_LABEL_SUFFIX = " (log scale)"
 MINIMUM_POSITIVE_VALUES_FOR_LOG_SCALE = 1
 
+# The linear amplitude colour scale always starts at zero. A log scale cannot,
+# so it starts at the smallest positive plotted value.
+COLOUR_SCALE_MINIMUM = 0.0
+
 # Amplitude maximum override.
 CLIP_WARNING_TEMPLATE = "tile: {ant},{tile_id},{tile_name} amplitude {amplitude:.6g} has been clipped to {maximum:.6g}"
