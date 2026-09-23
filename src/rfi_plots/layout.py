@@ -6,6 +6,8 @@ import numpy as np
 from mwalib import MetafitsContext
 from numpy.typing import NDArray
 
+from rfi_plots.constants import FLAGGED_TILE_REPORT_HEADER, FLAGGED_TILE_TEMPLATE, NO_FLAGGED_TILES_MESSAGE
+
 
 @dataclass(frozen=True)
 class TileLayout:
@@ -54,3 +56,30 @@ def tile_layout_from_metafits(metafits_context: MetafitsContext) -> TileLayout:
             dtype=np.bool_,
         ),
     )
+
+
+def flagged_tile_report(layout: TileLayout) -> list[str]:
+    """Build a report of the tiles flagged in the metafits.
+
+    Args:
+        layout: The tile layout for the observation.
+
+    Returns:
+        A header line followed by one line per flagged tile, or a single line
+        saying that no tiles are flagged.
+    """
+    flagged_indices = np.flatnonzero(layout.flagged)
+    if flagged_indices.size == 0:
+        return [NO_FLAGGED_TILES_MESSAGE]
+
+    lines = [FLAGGED_TILE_REPORT_HEADER.format(count=flagged_indices.size)]
+    lines += [
+        FLAGGED_TILE_TEMPLATE.format(
+            ant=antenna_index,
+            tile_id=layout.tile_ids[antenna_index],
+            tile_name=layout.tile_names[antenna_index],
+        )
+        for antenna_index in flagged_indices
+    ]
+
+    return lines

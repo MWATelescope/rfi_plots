@@ -18,7 +18,7 @@ from rfi_plots.constants import (
     MODES,
     OUTPUT_FILENAME_TEMPLATE,
 )
-from rfi_plots.layout import tile_layout_from_metafits
+from rfi_plots.layout import flagged_tile_report, tile_layout_from_metafits
 from rfi_plots.metrics import TileMetric, clip_to_range, compute_auto_amplitudes, compute_flag_occupancy
 from rfi_plots.plotting import plot_tile_map
 
@@ -163,6 +163,9 @@ def main(argv: list[str] | None = None) -> int:
 
     metafits_context = correlator_context.metafits_context
     layout = tile_layout_from_metafits(metafits_context)
+
+    for line in flagged_tile_report(layout):
+        print(line)
 
     try:
         metric = compute_metric(args.mode, correlator_context)

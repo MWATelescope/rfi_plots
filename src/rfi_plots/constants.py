@@ -70,3 +70,8 @@ LOG_ZERO_MINIMUM_WARNING = (
 
 # Amplitude range overrides.
 CLIP_WARNING_TEMPLATE = "tile: {ant},{tile_id},{tile_name} amplitude {amplitude:.6g} has been clipped to {limit:.6g}"
+
+# Flagged tile report.
+FLAGGED_TILE_REPORT_HEADER = "{count} tile(s) flagged in the metafits:"
+FLAGGED_TILE_TEMPLATE = "tile: {ant},{tile_id},{tile_name}"
+NO_FLAGGED_TILES_MESSAGE = "No tiles are flagged in the metafits"
